@@ -1,0 +1,26 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.12
+    container_name: clickhouse
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:3001:9000"
+      #- "8123:8123" admin
+
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+    environment:
+      CLICKHOUSE_DB: vibeswaf
+      CLICKHOUSE_USER: vibeswaf
+      CLICKHOUSE_PASSWORD: vibeswaf
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+
+    volumes:
+      - /opt/db/clickhouse/data:/var/lib/clickhouse
+      - /opt/db/clickhouse/logs:/var/log/clickhouse-server
+      - /opt/db/clickhouse/config/config.d/system_logs.xml:/etc/clickhouse-server/config.d/system_logs.xml
+

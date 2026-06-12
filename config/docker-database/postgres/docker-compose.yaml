@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vibeswaf
+      POSTGRES_USER: vibeswaf
+      POSTGRES_PASSWORD: vibeswaf
+      TZ: UTC
+    volumes:
+      - /opt/db/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:3002:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

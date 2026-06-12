@@ -1,0 +1,58 @@
+<clickhouse>
+
+    <!-- ============================= -->
+    <!-- DISABLE HEAVY SYSTEM LOGS     -->
+    <!-- ============================= -->
+
+    <!-- Query logs -->
+    <query_log remove="true"/>
+    <query_thread_log remove="true"/>
+
+    <!-- Trace & profiling logs -->
+    <trace_log remove="true"/>
+
+    <!-- Metrics internal -->
+    <metric_log remove="true"/>
+    <asynchronous_metric_log remove="true"/>
+
+    <!-- Part mutation / merge logs -->
+    <part_log remove="true"/>
+
+    <!-- Crash log -->
+    <crash_log remove="true"/>
+
+    <!-- OpenTelemetry -->
+    <opentelemetry_span_log remove="true"/>
+
+    <!-- ============================= -->
+    <!-- OPTIONAL: KEEP 1 LOG (SAFE)  -->
+    <!-- Uncomment if you want minimal observability -->
+    <!-- ============================= -->
+    <!--
+    <query_log>
+        <database>system</database>
+        <table>query_log</table>
+        <flush_interval_milliseconds>15000</flush_interval_milliseconds>
+        <partition_by>toYYYYMM(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 1 DAY DELETE</ttl>
+    </query_log>
+    -->
+
+    <!-- ============================= -->
+    <!-- LOGGER (TEXT LOG FILE)        -->
+    <!-- ============================= -->
+
+    <logger>
+        <!-- level: trace | debug | info | warning | error -->
+        <level>warning</level>
+
+        <!-- paths MUST EXIST -->
+        <log>/var/log/clickhouse-server/clickhouse.log</log>
+        <errorlog>/var/log/clickhouse-server/clickhouse.err.log</errorlog>
+
+        <!-- rotation -->
+        <size>100M</size>
+        <count>3</count>
+    </logger>
+
+</clickhouse>
