@@ -2,6 +2,8 @@
 
 A reverse proxy and WAF built for personal use and experimentation. Not production-hardened, not battle-tested — just a fun project to learn how WAFs work from the inside.
 
+![Pipeline Trace](screenshot/11.%20Pipeline-trace.png)
+
 Built in Go. Uses [Coraza](https://github.com/corazawaf/coraza) + OWASP CRS for managed rules, PostgreSQL for config, ClickHouse for logs, Redis for state.
 
 ---
