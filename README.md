@@ -1,6 +1,8 @@
 # VibesWAF
 
-A reverse proxy and WAF built for personal use and experimentation. Not production-hardened, not battle-tested — just a fun project to learn how WAFs work from the inside.
+A reverse proxy and WAF built for personal use and experimentation. Not production-hardened, not battle-tested: just a project to learn how WAFs work from the inside.
+
+![Pipeline Trace](screenshot/11.%20Pipeline-trace.png)
 
 Built in Go. Uses [Coraza](https://github.com/corazawaf/coraza) + OWASP CRS for managed rules, PostgreSQL for config, ClickHouse for logs, Redis for state.
 
@@ -8,135 +10,136 @@ Built in Go. Uses [Coraza](https://github.com/corazawaf/coraza) + OWASP CRS for 
 
 ## What it does
 
-Sits in front of your apps (via OpenResty/nginx), runs each request through a 4-phase pipeline, and decides: block, challenge, or allow.
+Sits in front of your apps (behind OpenResty/nginx), runs each request through a 4-phase pipeline, and decides: block, challenge, or allow. Everything passes through.
 
 ```
-Request → Phase 1 (Hard Rules) → Phase 2 (Scoring) → Phase 3 (Decision) → Phase 4 (Response)
+Request -> Phase 1 (Hard Rules) -> Phase 2 (Scoring) -> Phase 3 (Decision) -> Phase 4 (Response)
 ```
 
 ---
 
-## Highlights
+## Pipeline
 
-### Predictable scoring pipeline
+### Phase 1: Hard Rules (deterministic, early exit)
 
-Every request produces a numeric score (0–100) from five independent categories. The final decision is always `score ≥ block_threshold → block`, `score ≥ challenge_threshold → challenge`, else allow. No magic, no hidden rules.
-
-```
-ip_reputation   +20  →  ×1.0  →  cap 25  →  20
-bot_detection   +45  →  ×1.0  →  cap 35  →  35
-waf_anomaly      +5  →  ×1.5  →  cap 40  →   7
-protocol_anomaly  0
-trust             0
-─────────────────────────────────────────────
-total: 62  →  CHALLENGE (threshold: 50)
-```
-
-All weights, caps, and thresholds are configurable from the dashboard. Nothing is hardcoded.
-
----
-
-### Full pipeline trace as raw JSON
-
-Every request carries a `PipelineTrace` that records exactly what happened at each stage — which rule fired, raw score, multiplier, final score after cap, and the decision.
-
-```json
-{
-  "phase": "scoring",
-  "decision": "challenge",
-  "score": 62,
-  "stages": [
-    {
-      "stage": "ip_reputation",
-      "score": 20,
-      "multiplier": 1.0,
-      "final_score": 20,
-      "reason": "manual_asn:9009"
-    },
-    {
-      "stage": "bot_detection",
-      "score": 45,
-      "multiplier": 1.0,
-      "final_score": 35,
-      "reason": "missing_sec_fetch:15,chromium_missing_sec_ch_ua:15,chromium_missing_sec_fetch:15",
-      "evidence": "capped at 35"
-    },
-    {
-      "stage": "waf_anomaly",
-      "score": 5,
-      "multiplier": 1.5,
-      "final_score": 7,
-      "rule_id": "920280"
-    }
-  ]
-}
-```
-
-Stored in ClickHouse. Queryable from the dashboard log viewer.
-
----
-
-### Early-exit hard rules (Phase 1)
-
-Before any scoring happens, deterministic checks run in order and exit immediately on match:
+Runs in order. If any handler makes a decision (block/challenge), the pipeline stops immediately.
 
 ```
-ChallengeValidator → IPAccess → Flood → RateLimit → Cache → Custom Rules
+ChallengeValidator -> IPAccess -> Flood -> RateLimit -> Cache -> Custom Rules
 ```
 
-- **ChallengeValidator** — validates the `ok` cookie (HMAC-SHA256, includes trust level)
-- **IPAccess** — per-app allow/block/challenge by CIDR or single IP
-- **Flood** — 256-shard in-memory flood detector with penalty period
-- **RateLimit** — token bucket per IP+UA, no Redis on hot path
-- **Cache** — replays cached decisions for repeat fingerprints
-- **Custom Rules** — expression-based rules (IP, path, UA, headers, geo, ASN) with `skip` support for per-module bypass
+- **ChallengeValidator**: validates the `ok` cookie (HMAC-SHA256 with IP + UA + timestamp + trust level). If valid, the request carries a trust level into Phase 2.
+- **IPAccess**: per-app allow/block/challenge by CIDR or single IP. Match is terminal.
+- **Flood**: 256-shard in-memory detector with configurable penalty period. Handles basic, attack, and error flood profiles.
+- **RateLimit**: token bucket per IP+UA. No Redis on the hot path.
+- **Cache**: replays cached decisions for repeat request fingerprints.
+- **Custom Rules**: expression-based rules (IP, path, UA, headers, geo, ASN). Supports `skip` action to bypass specific Phase 2 modules.
 
-Hard decision → skip Phase 2 entirely. Target: < 3ms.
+If any Phase 1 handler issues a terminal decision, Phases 2 and 3 are skipped and the pipeline jumps directly to Phase 4.
+
+### Phase 2: Scoring (cumulative)
+
+All handlers run. Each contributes points to five independent categories:
+
+```
+IPReputation -> BotDetection -> WAFEngine -> ProtocolAnomaly -> TrustedHistory -> StableSession -> Trust
+```
+
+| Category | Source | Typical signals |
+|---|---|---|
+| `ip_reputation` | MaxMind, Spamhaus, manual entries | Datacenter IP, known bad ASN |
+| `bot_detection` | UA analysis, header consistency, timing | Missing Sec-Fetch, bot UA pattern, burst rate |
+| `waf_anomaly` | Coraza + OWASP CRS | SQLi, XSS, LFI, RCE rule matches |
+| `protocol_anomaly` | HTTP header analysis, JA4 fingerprinting | Content-Type on GET, TE/CL conflict, old TLS + browser UA |
+| `trust` | Challenge result, history, known good bots | Negative score (reduction) for verified users |
+
+After all handlers run, each category score is clamped to its `max_score` and multiplied by its configured multiplier. Categories can be disabled from the dashboard (score resets to 0).
+
+### Phase 3: Decision
+
+One rule: the total score determines the outcome.
+
+```
+score >= block_threshold     -> block
+score >= challenge_threshold -> challenge
+score <  challenge_threshold -> allow
+```
+
+All thresholds, weights, caps, and multipliers are stored in PostgreSQL and live in memory via atomic pointer swap. Nothing is hardcoded.
+
+### Phase 4: Response
+
+- **Block**: 403 page with the reason and a Ray ID.
+- **Challenge**: slider page (see below).
+- **Allow**: proxy to upstream.
 
 ---
 
-### Challenge with trajectory analysis
+## Challenge System
 
-The slider challenge collects raw mouse trajectory data (position + timing) and sends it to the backend on solve. The server analyzes it and assigns a trust level (0–3) based on:
+When a request hits the challenge threshold, the client is served a slider page. The slider collects raw mouse trajectory data (position + timing per sample point) and sends it to the backend.
 
-- Speed variance (human: irregular, bot: constant)
-- Straightness (human: 0.85–0.98, bot: ~1.0)
-- Y-axis jitter
-- Direction changes
-- Timing regularity
+The server validates three things:
 
-Trust level feeds back into Phase 2 as a negative score (0 to −15), so a high-confidence human solve can bring a borderline request below the challenge threshold on the next request.
+1. **Position**: slider position within tolerance (4 percentage points) of the server-generated target.
+2. **Duration**: total interaction time >= 1.5 seconds.
+3. **Trajectory analysis**: the raw mouse path is scored across seven metrics:
+
+| Metric | Human | Bot |
+|---|---|---|
+| Speed variance | Irregular | Uniform |
+| Straightness | 0.85..0.98 | ~1.0 |
+| Y-axis jitter | Present | Flat line |
+| Direction changes | >= 1 X reversal | None |
+| Timing variance | Variable intervals | Constant intervals |
+| Acceleration variance | Phased (accel, cruise, decel) | Flat |
+| Micro-pauses | Present before release | None |
+
+Trajectory score (70%) + browser signals score (30%) combine into a confidence value (0.0..1.0), which maps to a trust level:
+
+| Trust Level | Confidence | Score Reduction |
+|---|---|---|
+| 0 | 0.00..0.39 | 0 (solved but suspicious) |
+| 1 | 0.40..0.59 | -5 |
+| 2 | 0.60..0.79 | -10 |
+| 3 | 0.80..1.00 | -15 |
+
+The trust level is embedded in the `ok` cookie (HMAC-protected) and applied as a negative score on the next request. A high-confidence human solve can bring a borderline request below the challenge threshold.
+
+Maximum 3 attempts per challenge. Challenge store has a configurable TTL. Challenge solve requests are rate-limited per IP.
 
 ---
 
-### Trust history
+## Trust History
 
-IPs with N consecutive clean requests (no block/challenge) accumulate a trust score over time. Configurable threshold and reduction value from the dashboard.
-
----
-
-### Zero DB queries on the request path
-
-All config (scoring weights, app config, rate limits, IP reputation) is preloaded into memory via atomic swap with a background refresh. PostgreSQL is only hit by the config loader goroutine, never by the request handler.
+IPs with N consecutive clean requests (no block or challenge) accumulate a trust reduction score. Both the threshold (N) and reduction value are configurable from the dashboard. Stored in Redis with a 24-hour TTL.
 
 ---
 
-### Async logging to ClickHouse
+## Config
 
-All requests are logged regardless of decision. Logging is a side effect — it happens via a buffered channel and batch worker. The request handler never waits for a log write.
+DB -> preload -> memory -> runtime via atomic swap. Background refresh every 10 seconds. Zero DB queries on the request path.
+
+---
+
+## Logging
+
+All requests are logged regardless of decision. Logging is a side effect: it happens via a buffered channel and batch worker. The request handler never waits for a log write. Destination: ClickHouse.
+
+Each log entry includes the full pipeline trace (per-stage scores, reasons, multipliers, final scores).
 
 ---
 
 ## Stack
 
 | Component | Role |
-|-----------|------|
+|---|---|
 | Go | Core proxy + pipeline |
-| OpenResty (nginx + Lua) | TLS termination, JA4 fingerprinting, dynamic cert via `ssl_certificate_by_lua` |
+| OpenResty (nginx + Lua) | TLS termination, JA4 fingerprinting, dynamic SSL |
 | Coraza + OWASP CRS | Managed WAF rules |
-| PostgreSQL | Config storage |
+| PostgreSQL | Config storage, migrations |
 | ClickHouse | Request logs + analytics |
-| Redis | Rate limit state, challenge store |
+| Redis | Rate limit state, challenge store, trust history |
 | React + Vite | Dashboard frontend |
 | MaxMind GeoIP2 | Geo lookup + datacenter detection |
 
@@ -144,27 +147,27 @@ All requests are logged regardless of decision. Logging is a side effect — it 
 
 ## Dashboard
 
-Web UI to manage everything without touching config files:
+Web UI for managing all configuration:
 
-- **Applications** — proxy targets, per-app overrides
-- **Security Rules** — expression-based custom rules
-- **Rate Limiter** — flood + token bucket profiles
-- **Bot Detector** — per-rule scores, UA patterns, trust level config
-- **WAF Settings** — paranoia level, disabled rules, custom SecRules
-- **IP Reputation** — manual IP/ASN scores
-- **Scoring Engine** — per-category multiplier, cap, thresholds
-- **Logs** — request log viewer with raw JSON trace
-- **Analytics** — traffic overview, threat breakdown
+- **Applications**: domain, upstreams, load balancing, per-app overrides, trusted proxies.
+- **Security Rules**: expression-based custom rules (IP, path, UA, headers, geo, ASN) with block/challenge/allow/log/skip actions.
+- **Rate Limiter**: flood profiles (basic, attack, error) and token bucket per-app rate limits.
+- **Bot Detector**: per-rule UA/referer scores, bot IP ranges, trust level thresholds.
+- **WAF Engine**: Coraza paranoia level, anomaly thresholds, allowed methods, disabled rules, custom SecRules.
+- **IP Reputation**: manual IP and ASN scoring.
+- **Scoring Engine**: per-category multiplier, max score cap, enable/disable toggle, block and challenge thresholds.
+- **Logs**: request log viewer with raw JSON pipeline trace.
+- **Analytics**: traffic charts, threat breakdown, score distribution.
 
 ---
 
 ## Requirements
 
 - Go 1.25+
-- PostgreSQL
+- PostgreSQL 14+
 - ClickHouse
 - Redis
-- OpenResty (for TLS + JA4)
+- OpenResty (for TLS termination and JA4 fingerprinting)
 
 ---
 
@@ -174,10 +177,7 @@ Web UI to manage everything without touching config files:
 cp .env.example .env
 # edit .env
 
-# run migrations
-./wafer migrate
-
-# start
+# run migrations (auto by default, set AUTO_MIGRATE=false to skip)
 ./wafer
 ```
 
@@ -190,13 +190,13 @@ npm install
 npm run build
 ```
 
-See `config/` for nginx, systemd service, and ACME scripts.
+See `config/` for nginx configuration, systemd service, and ACME scripts.
 
 ---
 
 ## Caveats
 
-- Personal project. No guarantees, no SLA, no support.
+- Personal project. No guarantees, no SLA.
 - Test coverage is partial.
-- Some features assume OpenResty is in front (JA4 header, dynamic SSL).
+- Some features assume OpenResty is in front (JA4 headers, dynamic SSL).
 - Not designed for multi-tenant.
