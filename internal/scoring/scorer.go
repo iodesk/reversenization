@@ -3,8 +3,8 @@ package scoring
 import (
 	"strings"
 
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/pipeline"
 )
 
 type Scorer struct {

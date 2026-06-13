@@ -8,10 +8,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/repository"
 )
 
 type protocolAnomalyState struct {
@@ -265,29 +265,26 @@ func (h *ProtocolAnomalyHandler) checkCookieAnomaly(ctx *pipeline.Context) (int,
 
 func (h *ProtocolAnomalyHandler) isValidChallengeFormat(value string) bool {
 	parts := strings.Split(value, ".")
-	if len(parts) != 2 {
+	if len(parts) < 2 || len(parts) > 3 {
 		return false
 	}
-	if len(parts[0]) != 32 {
+	if len(parts[0]) != 32 && len(parts[0]) != 64 {
 		return false
 	}
 	_, err := strconv.ParseInt(parts[1], 10, 64)
 	return err == nil
 }
-
 func (h *ProtocolAnomalyHandler) isCookieTimestampFuture(value string) bool {
 	parts := strings.Split(value, ".")
-	if len(parts) != 2 {
+	if len(parts) < 2 || len(parts) > 3 {
 		return false
 	}
 	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
 		return false
 	}
-	// Allow 60 seconds clock skew
 	return timestamp > time.Now().Unix()+60
 }
-
 func (h *ProtocolAnomalyHandler) checkJA4Anomaly(ctx *pipeline.Context) (int, []string) {
 	r := ctx.Request
 	var score int

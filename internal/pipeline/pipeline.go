@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourapp/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/model"
 )
 
 var ErrResponseWritten = errors.New("response already written")

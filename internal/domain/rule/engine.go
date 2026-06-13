@@ -1,7 +1,7 @@
 package rule
 
 import (
-	"github.com/yourapp/waf/internal/rules"
+	"github.com/vibeswaf/waf/internal/rules"
 )
 
 

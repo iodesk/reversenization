@@ -3,11 +3,11 @@ package service
 import (
 	"fmt"
 
-	"github.com/yourapp/waf/internal/logger"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/repository"
-	"github.com/yourapp/waf/internal/waf"
+	"github.com/vibeswaf/waf/internal/logger"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/waf"
 )
 
 type WAFService struct {

@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	"net"
+	"net/http"
 	"hash/fnv"
 	"os"
 	"strconv"
@@ -66,6 +68,8 @@ type AdvancedConfig struct {
 	PassXForwardedProto bool   `json:"pass_x_forwarded_proto"`
 
 	AllowInsecureSSL bool `json:"allow_insecure_ssl"`
+
+	TrustedProxies []string `json:"trusted_proxies,omitempty"`
 
 	ConnectTimeout int `json:"connect_timeout"`
 	ReadTimeout    int `json:"read_timeout"`
@@ -216,6 +220,97 @@ func (a *App) PickUpstream(clientIP string) *Upstream {
 	}
 }
 
+
+
+// ExtractClientIP returns the real client IP by walking X-Forwarded-For
+// from the rightmost untrusted proxy. If no trusted proxies are configured,
+// it falls back to the leftmost X-Forwarded-For value (backward compatible).
+func (a *App) ExtractClientIP(r *http.Request) string {
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff == "" {
+		// CF-Connecting-IP is set by nginx after Cloudflare, which we trust.
+		if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
+			return strings.TrimSpace(cfIP)
+		}
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return r.RemoteAddr
+		}
+		return host
+	}
+
+	ips := strings.Split(xff, ",")
+	trustedProxies := a.Config.Advanced.TrustedProxies
+
+	if len(trustedProxies) == 0 {
+		// No trusted proxy config: use leftmost (backward compatible with existing setup).
+		return strings.TrimSpace(ips[0])
+	}
+
+	// Walk from right to left; rightmost non-trusted IP is the real client.
+	for i := len(ips) - 1; i >= 0; i-- {
+		ip := strings.TrimSpace(ips[i])
+		trusted := false
+		for _, cidr := range trustedProxies {
+			_, network, err := net.ParseCIDR(cidr)
+			if err != nil {
+				continue
+			}
+			parsed := net.ParseIP(ip)
+			if parsed != nil && network.Contains(parsed) {
+				trusted = true
+				break
+			}
+		}
+		if !trusted {
+			return ip
+		}
+	}
+
+	// All IPs in the chain are trusted proxies; use leftmost as fallback.
+	return strings.TrimSpace(ips[0])
+}
+
+// ExtractClientIPStatic is like ExtractClientIP but works with only trusted proxies list
+// (no App needed — for call sites that may not have a resolved app yet).
+func ExtractClientIPStatic(r *http.Request, trustedProxies []string) string {
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff == "" {
+		if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
+			return strings.TrimSpace(cfIP)
+		}
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return r.RemoteAddr
+		}
+		return host
+	}
+
+	ips := strings.Split(xff, ",")
+	if len(trustedProxies) == 0 {
+		return strings.TrimSpace(ips[0])
+	}
+
+	for i := len(ips) - 1; i >= 0; i-- {
+		ip := strings.TrimSpace(ips[i])
+		trusted := false
+		for _, cidr := range trustedProxies {
+			_, network, err := net.ParseCIDR(cidr)
+			if err != nil {
+				continue
+			}
+			parsed := net.ParseIP(ip)
+			if parsed != nil && network.Contains(parsed) {
+				trusted = true
+				break
+			}
+		}
+		if !trusted {
+			return ip
+		}
+	}
+	return strings.TrimSpace(ips[0])
+}
 
 func (a *App) Validate() error {
 	if a.Domain == "" {

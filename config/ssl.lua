@@ -7,7 +7,6 @@ if not host then
     return
 end
 
--- Ambil di cache (simpan dalam format DER agar hemat CPU)
 local cert_der = cache:get(host .. ":cert")
 local key_der  = cache:get(host .. ":key")
 
@@ -26,7 +25,6 @@ if not cert_der or not key_der then
     local cert_pem = read_file(cert_path)
     local key_pem  = read_file(key_path)
 
-    -- Fallback to default certificate if domain cert not found
     if not cert_pem or not key_pem then
         cert_path = "/opt/certs/default/fullchain.pem"
         key_path  = "/opt/certs/default/key.pem"
@@ -47,7 +45,6 @@ if not cert_der or not key_der then
             return
         end
 
-        -- Simpan DER ke cache (TTL 1 jam)
         cache:set(host .. ":cert", cert_der, 3600)
         cache:set(host .. ":key", key_der, 3600)
     else

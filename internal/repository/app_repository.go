@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourapp/waf/internal/domain/app"
+	"github.com/vibeswaf/waf/internal/domain/app"
 )
 
 

@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"net/http"
+	"strconv"
 
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 
@@ -36,7 +37,7 @@ func (m *AuthMiddleware) Authenticate(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 
-		r.Header.Set("X-User-ID", string(rune(session.UserID)))
+		r.Header.Set("X-User-ID", strconv.Itoa(session.UserID))
 		r.Header.Set("X-Username", session.Username)
 
 

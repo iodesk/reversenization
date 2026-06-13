@@ -1,13 +1,12 @@
 package handlers
 
 import (
-	mrand "math/rand"
 	"net/http"
 
-	"github.com/yourapp/waf/internal/challenge"
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/pages"
-	"github.com/yourapp/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/challenge"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/pages"
+	"github.com/vibeswaf/waf/internal/pipeline"
 )
 
 type ChallengeHandler struct {
@@ -64,18 +63,12 @@ func (h *ChallengeHandler) serveChallenge(ctx *pipeline.Context) {
 
 	target, _ := data.Payload["target"].(int)
 
-	// Obfuscate target: XOR with a random key so it's not plaintext in DOM
-	obfKey := 50 + mrand.Intn(150) // random key 50-199
-	obfTarget := target ^ obfKey
-
 	pages.ServeChallengePage(ctx.Writer, pages.ChallengePageData{
 		ChallengeID: data.ID,
 		Type:        data.Type,
-		Target:      0, // no longer used directly
+		Target:      target,
 		MaxAttempts: h.store.MaxRetries(),
 		Timeout:     h.store.TTLSeconds(),
 		Host:        ctx.Request.Host,
-		ObfKey:      obfKey,
-		ObfTarget:   obfTarget,
 	})
 }

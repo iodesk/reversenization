@@ -146,7 +146,7 @@ footer{padding:20px 48px;border-top:1px solid #1f1f1f;display:flex;align-items:c
   });
 
   // Position target zone using requestAnimationFrame to avoid immediate DOM readability
-  var _pos = ((_t ^ _k) - 4) | 0;
+  var _pos = (target - 4) | 0;
   requestAnimationFrame(function() {
     targetZone.style.cssText = 'position:absolute;top:0;height:100%;width:8%;background:rgba(37,99,235,0.08);border-left:2px solid rgba(37,99,235,0.3);border-right:2px solid rgba(37,99,235,0.3);left:' + _pos + '%;opacity:1;transition:opacity 0.3s';
   });

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourapp/waf/internal/api/v1/dto"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/api/v1/dto"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/repository"
 )
 
 type BotPatternHandler struct {

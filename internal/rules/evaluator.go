@@ -6,27 +6,30 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/pipeline"
 )
 
+const maxRegexCache = 500
+
 type Evaluator struct {
-	fields       map[string]FieldDef
-	operators    map[string]OperatorDef
-	regexCache   map[string]*regexp.Regexp
-	regexCacheMu sync.RWMutex
-	appConfig    *config.AppConfig
+	fields          map[string]FieldDef
+	operators       map[string]OperatorDef
+	regexCache      map[string]*regexp.Regexp
+	regexCacheOrder []string
+	regexCacheMu    sync.RWMutex
+	appConfig       *config.AppConfig
 }
 
 func NewEvaluator() *Evaluator {
 	return &Evaluator{
-		fields:     FieldRegistry,
-		operators:  OperatorRegistry,
-		regexCache: make(map[string]*regexp.Regexp),
-		appConfig:  config.GetAppConfig(),
+		fields:          FieldRegistry,
+		operators:       OperatorRegistry,
+		regexCache:      make(map[string]*regexp.Regexp),
+		regexCacheOrder: make([]string, 0, maxRegexCache),
+		appConfig:       config.GetAppConfig(),
 	}
 }
-
 func (e *Evaluator) Evaluate(node *Node, ctx *pipeline.Context) (bool, error) {
 	if node == nil {
 		return false, fmt.Errorf("node is nil")
@@ -109,7 +112,6 @@ func (e *Evaluator) evaluateRegex(node *Node, fieldValue interface{}) (bool, err
 	e.regexCacheMu.RUnlock()
 
 	if !cached {
-
 		var err error
 		re, err = regexp.Compile(pattern)
 		if err != nil {
@@ -117,11 +119,15 @@ func (e *Evaluator) evaluateRegex(node *Node, fieldValue interface{}) (bool, err
 		}
 
 		e.regexCacheMu.Lock()
+		if len(e.regexCache) >= maxRegexCache {
+			delete(e.regexCache, e.regexCacheOrder[0])
+			e.regexCacheOrder = e.regexCacheOrder[1:]
+		}
 		e.regexCache[pattern] = re
+		e.regexCacheOrder = append(e.regexCacheOrder, pattern)
 		e.regexCacheMu.Unlock()
 	}
-
-	fv := toString(fieldValue)
+fv := toString(fieldValue)
 	matched := re.MatchString(fv)
 
 	if node.Operator == "not_regex" {

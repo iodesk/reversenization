@@ -167,8 +167,14 @@ CREATE TABLE IF NOT EXISTS ip_reputation_entries (
 ALTER TABLE ip_reputation_entries ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
 
 -- Migration: add unique constraints if not exists (fixes deploy-time bloat on re-run)
-ALTER TABLE bot_patterns ADD CONSTRAINT IF NOT EXISTS bot_patterns_type_pattern_unique UNIQUE (pattern_type, pattern);
-ALTER TABLE bot_ip_ranges ADD CONSTRAINT IF NOT EXISTS bot_ip_ranges_name_unique UNIQUE (name);
+DO $$ BEGIN
+  ALTER TABLE bot_patterns ADD CONSTRAINT bot_patterns_type_pattern_unique UNIQUE (pattern_type, pattern);
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE bot_ip_ranges ADD CONSTRAINT bot_ip_ranges_name_unique UNIQUE (name);
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
 
 -- ============================================================
 -- DEFAULT SETTINGS SEED

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/yourapp/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/model"
 )
 
 type SettingsRepository struct {

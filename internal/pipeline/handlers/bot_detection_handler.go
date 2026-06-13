@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type BotDetectionHandler struct {

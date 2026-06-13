@@ -3,7 +3,7 @@ package rules
 import (
 	"strings"
 
-	"github.com/yourapp/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/pipeline"
 )
 
 

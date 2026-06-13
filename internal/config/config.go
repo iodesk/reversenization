@@ -3,8 +3,8 @@ package config
 import (
 	"time"
 
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/store"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/store"
 )
 
 type Manager struct {

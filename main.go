@@ -7,25 +7,27 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/yourapp/waf/internal/acme"
-	v1 "github.com/yourapp/waf/internal/api/v1"
-	"github.com/yourapp/waf/internal/cache"
-	"github.com/yourapp/waf/internal/challenge"
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/logger"
-	"github.com/yourapp/waf/internal/migration"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/pipeline/handlers"
-	"github.com/yourapp/waf/internal/ratelimit"
-	"github.com/yourapp/waf/internal/repository"
-	"github.com/yourapp/waf/internal/service"
-	"github.com/yourapp/waf/internal/stream"
+	"github.com/vibeswaf/waf/internal/acme"
+	v1 "github.com/vibeswaf/waf/internal/api/v1"
+	"github.com/vibeswaf/waf/internal/cache"
+	"github.com/vibeswaf/waf/internal/challenge"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/logger"
+	"github.com/vibeswaf/waf/internal/migration"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/pipeline/handlers"
+	"github.com/vibeswaf/waf/internal/ratelimit"
+	"github.com/vibeswaf/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/stream"
 )
 
 func main() {
@@ -39,7 +41,7 @@ func main() {
 	appCfg := config.GetAppConfig()
 	defer appCfg.Close()
 
-	appCfg.LogStartup("=== WAF Starting === debug=%v level=%s", appCfg.IsDebug(), appCfg.LogLevel)
+	appCfg.LogStartup("=== VibesWAF Starting === debug=%v level=%s", appCfg.IsDebug(), appCfg.LogLevel)
 
 	psqlDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		os.Getenv("PSQL_HOST"),
@@ -58,11 +60,15 @@ func main() {
 	defer pg.Close()
 	appCfg.LogStartup("PostgreSQL: ok")
 
-	if err := migration.Run(pg.DB()); err != nil {
-		appCfg.LogStartup("FATAL: Migration failed: %v", err)
-		log.Fatalf("Migration failed: %v", err)
+	if getEnvBool("AUTO_MIGRATE", true) {
+		if err := migration.Run(pg.DB()); err != nil {
+			appCfg.LogStartup("FATAL: Migration failed: %v", err)
+			log.Fatalf("Migration failed: %v", err)
+		}
+		appCfg.LogStartup("Migration: ok")
+	} else {
+		appCfg.LogStartup("Migration: skipped (AUTO_MIGRATE=false)")
 	}
-	appCfg.LogStartup("Migration: ok")
 
 	clickhouseLogger := logger.NewClickhouse()
 	err = clickhouseLogger.Connect(
@@ -72,7 +78,7 @@ func main() {
 		os.Getenv("CLICKHOUSE_PASSWORD"),
 	)
 	if err != nil {
-		appCfg.LogStartup("ClickHouse: unavailable (%v) — logging disabled", err)
+		appCfg.LogStartup("ClickHouse: unavailable (%v) -- logging disabled", err)
 	} else {
 		defer clickhouseLogger.Close()
 		appCfg.LogStartup("ClickHouse: ok")
@@ -104,7 +110,7 @@ func main() {
 	acmeService := acme.NewService(certDir, acmeEmail)
 
 	if !acmeService.IsInstalled() {
-		appCfg.LogStartup("ACME: not installed — SSL auto-provisioning disabled")
+		appCfg.LogStartup("ACME: not installed -- SSL auto-provisioning disabled")
 		acmeService = nil
 	} else {
 		appCfg.LogStartup("ACME: ok")
@@ -118,7 +124,7 @@ func main() {
 	maxmindPath := getEnvOrDefault("MAXMIND_DB_PATH", "/opt/maxmind")
 	maxmindService, err := service.NewMaxMindService(maxmindPath)
 	if err != nil {
-		appCfg.LogStartup("MaxMind: unavailable — GeoIP/ASN disabled")
+		appCfg.LogStartup("MaxMind: unavailable -- GeoIP/ASN disabled")
 	} else {
 		defer maxmindService.Close()
 		appCfg.LogStartup("MaxMind: ok")
@@ -151,8 +157,6 @@ func main() {
 		time.Duration(rlCfg.Error.Duration)*time.Second,
 	)
 
-	// Dynamic config: FloodProtector reads fresh limits from DB on every check
-	// Cached with 10s TTL to avoid DB hit per request
 	var cachedFloodCfg ratelimit.FloodConfig
 	var cachedFloodCfgTime time.Time
 	var cachedFloodMu sync.Mutex
@@ -194,10 +198,10 @@ func main() {
 
 	botDetectionService := service.NewBotDetectionService(repos.BotPattern, repos.Settings, maxmindService, botIPRangeFetcher, redisClient)
 
-	bcryptCost := 10
+	bcryptCost := 12
 	if val := os.Getenv("BCRYPT_COST"); val != "" {
-		if cost, err := time.ParseDuration(val); err == nil {
-			bcryptCost = int(cost)
+		if cost, err := strconv.Atoi(val); err == nil && cost >= 4 && cost <= 31 {
+			bcryptCost = cost
 		}
 	}
 	authService := service.NewAuthService(repos.User, repos.Session, bcryptCost)
@@ -236,7 +240,6 @@ func main() {
 	stableSessionScorer := handlers.NewStableSessionScorer(getScoringConfig, redisClient)
 
 	p := pipeline.New(pipeline.PipelineConfig{
-		// Phase 1: Deterministic hard rules (early exit)
 		Phase1: []pipeline.Handler{
 			handlers.NewChallengeValidator(botDetectionService),
 			handlers.NewIPAccessHandler(ipAccessService),
@@ -245,7 +248,6 @@ func main() {
 			handlers.NewCacheCheckHandler(decisionCache),
 			handlers.NewRulesEngineHandler(ruleService, decisionCache),
 		},
-		// Phase 2: Adaptive scoring (cumulative)
 		Phase2: []pipeline.Handler{
 			handlers.NewIPReputationScorer(getScoringConfig, ipReputationService),
 			handlers.NewBotDetectionHandler(botDetectionService),
@@ -255,9 +257,7 @@ func main() {
 			stableSessionScorer,
 			handlers.NewTrustScorer(getScoringConfig, botDetectionService),
 		},
-		// Phase 3: Decision engine
 		Phase3: pipeline.NewDecisionEngine(getScoringConfig),
-		// Phase 4: Response handlers
 		Phase4: []pipeline.Handler{
 			pipeline.NewBlockHandler(),
 			handlers.NewChallengeHandler(challengeRegistry, challengeStore),
@@ -334,6 +334,13 @@ func main() {
 	appService.Stop()
 
 	appCfg.LogStartup("Stopped.")
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if val := os.Getenv(key); val != "" {
+		return strings.ToLower(val) == "true"
+	}
+	return defaultValue
 }
 
 func getEnvOrDefault(key, defaultValue string) string {

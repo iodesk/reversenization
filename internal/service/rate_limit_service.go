@@ -5,11 +5,11 @@ import (
 	"time"
 	"unsafe"
 
-	appcfg "github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/domain/app"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/ratelimit"
-	"github.com/yourapp/waf/internal/repository"
+	appcfg "github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/domain/app"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/ratelimit"
+	"github.com/vibeswaf/waf/internal/repository"
 )
 
 // globalRLState is swapped atomically on reload — zero lock on hot path.

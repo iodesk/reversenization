@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/repository"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type BotIPRangeHandler struct {

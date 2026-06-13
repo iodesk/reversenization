@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/yourapp/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/model"
 )
 
 // stubHandler runs an arbitrary function, used to simulate pipeline stages.

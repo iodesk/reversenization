@@ -6,11 +6,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/yourapp/waf/internal/acme"
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/domain/app"
-	"github.com/yourapp/waf/internal/repository"
-	"github.com/yourapp/waf/internal/stream"
+	"github.com/vibeswaf/waf/internal/acme"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/domain/app"
+	"github.com/vibeswaf/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/stream"
 )
 
 // appSnapshot is the in-memory index of apps, swapped atomically on reload.

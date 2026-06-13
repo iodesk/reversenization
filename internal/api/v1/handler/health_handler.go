@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type HealthHandler struct{}
@@ -18,7 +19,8 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"service": "wafer",
+		"service": "VibesWAF",
+		"version": config.Version,
 		"status":  "ok",
 	})
 }

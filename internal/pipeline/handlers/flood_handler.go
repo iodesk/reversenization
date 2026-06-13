@@ -3,11 +3,11 @@ package handlers
 import (
 	"time"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/ratelimit"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/ratelimit"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type FloodHandler struct {

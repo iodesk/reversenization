@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourapp/waf/internal/logger"
+	"github.com/vibeswaf/waf/internal/logger"
 )
 
 

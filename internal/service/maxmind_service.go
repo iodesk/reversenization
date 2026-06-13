@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/yourapp/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/config"
 	"os"
 	"path/filepath"
 	"strings"

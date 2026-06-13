@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourapp/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/config"
 
-	"github.com/yourapp/waf/internal/domain/rule"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/domain/rule"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/repository"
 )
 
 

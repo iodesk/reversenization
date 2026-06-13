@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/model"
 )
 
 type DecisionEngine struct {

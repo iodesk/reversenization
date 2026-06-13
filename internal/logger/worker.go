@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/yourapp/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/config"
 )
 
 func (c *Clickhouse) worker() {

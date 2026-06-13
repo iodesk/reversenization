@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/ratelimit"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/ratelimit"
 )
 
 func newFloodTestContext() *pipeline.Context {

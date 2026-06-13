@@ -1,4 +1,4 @@
-module github.com/yourapp/waf
+module github.com/vibeswaf/waf
 
 go 1.25.0
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourapp/waf/internal/domain/ip_access"
+	"github.com/vibeswaf/waf/internal/domain/ip_access"
 )
 
 type IPAccessRepository interface {

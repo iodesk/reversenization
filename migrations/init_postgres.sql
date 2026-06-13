@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS bot_whitelist (
 -- 6. Bot IP Ranges
 CREATE TABLE IF NOT EXISTS bot_ip_ranges (
     id               SERIAL PRIMARY KEY,
-    name             TEXT NOT NULL,
+    name             TEXT NOT NULL UNIQUE,
     source_type      TEXT NOT NULL DEFAULT 'manual',
     url              TEXT NOT NULL DEFAULT '',
     ip_ranges        JSONB NOT NULL DEFAULT '[]',

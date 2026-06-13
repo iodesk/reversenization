@@ -16,6 +16,8 @@ const (
 	maxLogBackups = 3
 )
 
+const Version = "1.0.1"
+
 type AppConfig struct {
 	Debug                  bool
 	LogLevel               string

@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/yourapp/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/model"
 )
 
 type Postgres struct {

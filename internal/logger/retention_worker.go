@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/yourapp/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/config"
 )
 
 func runCleanup(ctx context.Context, conn driver.Conn, retentionDays int, appCfg *config.AppConfig) {

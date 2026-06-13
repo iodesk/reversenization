@@ -55,6 +55,7 @@ export interface AdvancedConfig {
   pass_x_forwarded_host: boolean;
   pass_x_forwarded_proto: boolean;
   allow_insecure_ssl: boolean;
+  trusted_proxies: string[];
   connect_timeout: number;
   read_timeout: number;
   send_timeout: number;

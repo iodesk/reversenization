@@ -3,10 +3,10 @@ package handlers
 import (
 	"fmt"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type TrustScorer struct {

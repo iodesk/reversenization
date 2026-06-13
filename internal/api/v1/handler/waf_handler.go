@@ -11,16 +11,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourapp/waf/internal/bot"
-	"github.com/yourapp/waf/internal/domain/app"
-	"github.com/yourapp/waf/internal/logger"
-	"github.com/yourapp/waf/internal/metrics"
-	"github.com/yourapp/waf/internal/pages"
-	"github.com/yourapp/waf/internal/pipeline"
-	handlers "github.com/yourapp/waf/internal/pipeline/handlers"
-	"github.com/yourapp/waf/internal/ratelimit"
-	"github.com/yourapp/waf/internal/service"
-	"github.com/yourapp/waf/internal/transport"
+	"github.com/vibeswaf/waf/internal/bot"
+	"github.com/vibeswaf/waf/internal/domain/app"
+	"github.com/vibeswaf/waf/internal/logger"
+	"github.com/vibeswaf/waf/internal/metrics"
+	"github.com/vibeswaf/waf/internal/pages"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	handlers "github.com/vibeswaf/waf/internal/pipeline/handlers"
+	"github.com/vibeswaf/waf/internal/ratelimit"
+	"github.com/vibeswaf/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/transport"
 )
 
 
@@ -66,29 +66,32 @@ func (h *WAFHandler) AppService() *service.AppService {
 func (h *WAFHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
-	ctx := &pipeline.Context{
-		Request:  r,
-		Writer:   w,
-		ClientIP: getClientIP(r),
-	}
-
-	ctx.Key = ratelimit.BuildKey(ctx.ClientIP, r.UserAgent())
-
-	// Resolve app once — reused for under-attack check, pipeline metadata, and proxy.
+	// Resolve app first so TrustedProxies can be used for IP extraction.
 	var resolvedApp *app.App
 	appID := "default"
+	var trustedProxies []string
 	if h.appService != nil {
 		if a, err := h.appService.GetAppByDomain(r.Host); err == nil && a != nil {
 			resolvedApp = a
 			appID = a.ID
-			ctx.AppID = appID
+			trustedProxies = a.Config.Advanced.TrustedProxies
 			h.appConfig.LogDebug("[WAF] Matched domain %s to app %s", r.Host, appID)
 		} else {
 			h.appConfig.LogDebug("[WAF] No app found for domain %s, using default", r.Host)
 		}
 	}
 
-	// Redirect HTTP → HTTPS before any other processing.
+	clientIP := getClientIP(r, trustedProxies)
+
+	ctx := &pipeline.Context{
+		Request:  r,
+		Writer:   w,
+		ClientIP: clientIP,
+		AppID:    appID,
+	}
+
+	ctx.Key = ratelimit.BuildKey(ctx.ClientIP, r.UserAgent())
+// Redirect HTTP → HTTPS before any other processing.
 	if resolvedApp != nil && resolvedApp.Config.RedirectHTTPS && r.TLS == nil {
 		target := "https://" + r.Host + r.RequestURI
 		http.Redirect(w, r, target, http.StatusMovedPermanently)
@@ -502,26 +505,24 @@ func (h *WAFHandler) proxyToUpstream(w http.ResponseWriter, r *http.Request, app
 	transport.PutBuffer(buf)
 }
 
-func getClientIP(r *http.Request) string {
-
-	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
-
-		ips := strings.Split(xff, ",")
-		return strings.TrimSpace(ips[0])
+func getClientIP(r *http.Request, trustedProxies []string) string {
+	if len(trustedProxies) == 0 {
+		if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
+			return strings.TrimSpace(cfIP)
+		}
+		xff := r.Header.Get("X-Forwarded-For")
+		if xff != "" {
+			ips := strings.Split(xff, ",")
+			return strings.TrimSpace(ips[0])
+		}
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return r.RemoteAddr
+		}
+		return host
 	}
-
-
-	cfIP := r.Header.Get("CF-Connecting-IP")
-	if cfIP != "" {
-		return cfIP
-	}
-
-
-	return strings.Split(r.RemoteAddr, ":")[0]
+	return app.ExtractClientIPStatic(r, trustedProxies)
 }
-
-
 
 func isStaticAsset(path string) bool {
 

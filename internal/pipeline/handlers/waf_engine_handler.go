@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/service"
-	"github.com/yourapp/waf/internal/waf"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/waf"
 )
 
 type WAFEngineHandler struct {

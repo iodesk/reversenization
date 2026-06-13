@@ -176,8 +176,6 @@ type ChallengePageData struct {
 	MaxAttempts int
 	Timeout     int
 	Host        string
-	ObfKey      int
-	ObfTarget   int
 }
 
 func ServeChallengePage(w http.ResponseWriter, data ChallengePageData) {

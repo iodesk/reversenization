@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/yourapp/waf/internal/domain/ip_access"
-	"github.com/yourapp/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/domain/ip_access"
+	"github.com/vibeswaf/waf/internal/repository"
 )
 
 type IPAccessService struct {

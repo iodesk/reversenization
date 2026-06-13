@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yourapp/waf/internal/rules"
+	"github.com/vibeswaf/waf/internal/rules"
 )
 
 

@@ -5,15 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/pipeline"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type ChallengeValidator struct {
@@ -40,7 +39,7 @@ func (h *ChallengeValidator) Handle(ctx *pipeline.Context) error {
 
 	h.appCfg.LogDebug("[VALIDATOR] Cookie found: value=%s", cookie.Value)
 
-	clientIP := h.extractClientIP(ctx.Request)
+	clientIP := ctx.ClientIP
 
 	trustLevel, ok := h.verifyCookie(cookie.Value, clientIP, ctx.Request.UserAgent())
 	if ok {
@@ -58,14 +57,6 @@ func (h *ChallengeValidator) Handle(ctx *pipeline.Context) error {
 	}
 
 	return nil
-}
-
-func (h *ChallengeValidator) extractClientIP(r *http.Request) string {
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		ip := strings.SplitN(fwd, ",", 2)[0]
-		return strings.TrimSpace(ip)
-	}
-	return r.RemoteAddr
 }
 
 func (h *ChallengeValidator) verifyCookie(cookieValue, clientIP, userAgent string) (int, bool) {
@@ -117,7 +108,11 @@ func (h *ChallengeValidator) verifyCookie(cookieValue, clientIP, userAgent strin
 
 	hm := hmac.New(sha256.New, []byte(secret))
 	hm.Write([]byte(payload))
-	expectedSignature := hex.EncodeToString(hm.Sum(nil))[:32]
+	expectedFull := hex.EncodeToString(hm.Sum(nil))
+	expectedSignature := expectedFull
+	if len(signature) == 32 {
+		expectedSignature = expectedFull[:32]
+	}
 
 	if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
 		return 0, false

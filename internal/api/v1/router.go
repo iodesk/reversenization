@@ -6,21 +6,22 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/yourapp/waf/internal/api/v1/handler"
-	"github.com/yourapp/waf/internal/api/v1/middleware"
-	"github.com/yourapp/waf/internal/cache"
-	"github.com/yourapp/waf/internal/challenge"
-	"github.com/yourapp/waf/internal/logger"
-	"github.com/yourapp/waf/internal/pipeline"
-	handlers "github.com/yourapp/waf/internal/pipeline/handlers"
-	"github.com/yourapp/waf/internal/ratelimit"
-	"github.com/yourapp/waf/internal/repository"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/api/v1/handler"
+	"github.com/vibeswaf/waf/internal/api/v1/middleware"
+	"github.com/vibeswaf/waf/internal/cache"
+	"github.com/vibeswaf/waf/internal/challenge"
+	"github.com/vibeswaf/waf/internal/logger"
+	"github.com/vibeswaf/waf/internal/pipeline"
+	handlers "github.com/vibeswaf/waf/internal/pipeline/handlers"
+	"github.com/vibeswaf/waf/internal/ratelimit"
+	"github.com/vibeswaf/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type Router struct {
@@ -742,10 +743,21 @@ func (rt *Router) handleWAFVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract real client IP using trusted proxy walking.
+	// Default: trust Cloudflare CF-Connecting-IP; fall back to walking X-Forwarded-For.
 	ip := r.RemoteAddr
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		ip = strings.SplitN(fwd, ",", 2)[0]
-		ip = strings.TrimSpace(ip)
+	if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
+		ip = strings.TrimSpace(cfIP)
+	} else if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		// Walk from right to left; rightmost IP not in loopback is the real client.
+		// OpenResty/nginx always appends client IP as first entry in XFF, so the
+		// leftmost should be the actual client in our architecture.
+		ip = strings.TrimSpace(strings.SplitN(fwd, ",", 2)[0])
+	} else {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err == nil {
+			ip = host
+		}
 	}
 
 	// Rate limit: block IPs that solve challenges too frequently
@@ -847,7 +859,7 @@ func (rt *Router) handleWAFVerify(w http.ResponseWriter, r *http.Request) {
 
 	hm := hmac.New(sha256.New, []byte(secret))
 	hm.Write([]byte(payload))
-	signature := hex.EncodeToString(hm.Sum(nil))[:32]
+	signature := hex.EncodeToString(hm.Sum(nil))
 	token := fmt.Sprintf("%s.%d.%d", signature, timestamp, trustLevel)
 
 	cookieMaxAge := botCfg.ChallengeDuration

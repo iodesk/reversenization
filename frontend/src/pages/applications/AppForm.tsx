@@ -52,6 +52,7 @@ const defaultAppConfig: AppConfig = {
     pass_x_forwarded_host: true,
     pass_x_forwarded_proto: true,
     allow_insecure_ssl: false,
+    trusted_proxies: [],
     connect_timeout: 5,
     read_timeout: 60,
     send_timeout: 60,

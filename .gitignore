@@ -9,6 +9,8 @@
 # Go build output
 /wafer
 /wafer.exe
+/vibeswaf
+/vibeswaf.exe
 *.exe
 *.exe~
 *.dll

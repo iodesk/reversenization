@@ -8,9 +8,9 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/yourapp/waf/internal/config"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/config"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/repository"
 )
 
 var (

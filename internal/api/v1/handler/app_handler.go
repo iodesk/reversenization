@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/yourapp/waf/internal/api/v1/dto"
-	"github.com/yourapp/waf/internal/domain/app"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/api/v1/dto"
+	"github.com/vibeswaf/waf/internal/domain/app"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 

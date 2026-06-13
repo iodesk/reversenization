@@ -1,14 +1,15 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/yourapp/waf/internal/ratelimit"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/ratelimit"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 type RateLimitMiddleware struct {
@@ -73,19 +74,55 @@ func (m *RateLimitMiddleware) isAuthenticated(r *http.Request) bool {
 }
 
 func extractIP(r *http.Request) string {
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		return strings.TrimSpace(strings.SplitN(fwd, ",", 2)[0])
+	trustedStr := os.Getenv("TRUSTED_PROXIES")
+	if trustedStr == "" {
+		trustedStr = "127.0.0.1/32,::1/128"
 	}
-	if real := r.Header.Get("X-Real-IP"); real != "" {
-		return strings.TrimSpace(real)
+	trusted := make([]string, 0)
+	for _, cidr := range strings.Split(trustedStr, ",") {
+		cidr = strings.TrimSpace(cidr)
+		if cidr != "" {
+			trusted = append(trusted, cidr)
+		}
 	}
-	addr := r.RemoteAddr
-	if i := strings.LastIndex(addr, ":"); i != -1 {
-		return addr[:i]
-	}
-	return addr
-}
 
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff == "" {
+		if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
+			return strings.TrimSpace(cfIP)
+		}
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return r.RemoteAddr
+		}
+		return host
+	}
+
+	ips := strings.Split(xff, ",")
+	if len(trusted) == 0 {
+		return strings.TrimSpace(ips[0])
+	}
+
+	for i := len(ips) - 1; i >= 0; i-- {
+		ip := strings.TrimSpace(ips[i])
+		isTrusted := false
+		for _, cidr := range trusted {
+			_, network, err := net.ParseCIDR(cidr)
+			if err != nil {
+				continue
+			}
+			parsed := net.ParseIP(ip)
+			if parsed != nil && network.Contains(parsed) {
+				isTrusted = true
+				break
+			}
+		}
+		if !isTrusted {
+			return ip
+		}
+	}
+	return strings.TrimSpace(ips[0])
+}
 func envInt(key string, fallback int) int {
 	val := os.Getenv(key)
 	if val == "" {

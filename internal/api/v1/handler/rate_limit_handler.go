@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/yourapp/waf/internal/api/v1/dto"
-	"github.com/yourapp/waf/internal/logger"
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/repository"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/api/v1/dto"
+	"github.com/vibeswaf/waf/internal/logger"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/repository"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 

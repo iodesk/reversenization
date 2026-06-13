@@ -8,10 +8,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/yourapp/waf/internal/model"
-	"github.com/yourapp/waf/internal/service"
+	"github.com/vibeswaf/waf/internal/model"
+	"github.com/vibeswaf/waf/internal/service"
 )
 
 
@@ -60,7 +61,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Expires:  session.ExpiresAt,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 
@@ -88,7 +89,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -164,9 +165,8 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 
 	if os.Getenv("SESSION_SECRET") == "" {
 		secret := generateSecret(32)
-		if err := appendToEnvFile("SESSION_SECRET", secret); err == nil {
-			os.Setenv("SESSION_SECRET", secret)
-		}
+		os.Setenv("SESSION_SECRET", secret)
+		appendToEnvFile("SESSION_SECRET", secret)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -182,11 +182,17 @@ func generateSecret(length int) string {
 	return hex.EncodeToString(b)
 }
 
-func appendToEnvFile(key, value string) error {
+var envFileMu sync.Mutex
+
+func appendToEnvFile(key, value string) {
 	envPath := ".env"
+
+	envFileMu.Lock()
+	defer envFileMu.Unlock()
+
 	content, err := os.ReadFile(envPath)
 	if err != nil {
-		return err
+		return
 	}
 
 	lines := strings.Split(string(content), "\n")
@@ -204,7 +210,7 @@ func appendToEnvFile(key, value string) error {
 		lines = append(lines, fmt.Sprintf("%s=%s", key, value))
 	}
 
-	return os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0644)
+	_ = os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0600)
 }
 
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {

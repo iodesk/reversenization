@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Plus, Trash2, Info } from 'lucide-react'
@@ -40,7 +41,38 @@ export function AdvancedTab({ config, updateConfig }: AdvancedTabProps) {
         </Card>
       </div>
 
-      {/* Upstream Connection */}
+      {/* Trusted Proxies */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground">Trusted Proxies</h2>
+        <Card className="shadow-none border-border">
+          <CardContent className="p-5 space-y-3">
+            <p className="text-[10px] text-muted-foreground">
+              CIDR ranges of reverse proxies / CDN (e.g. Cloudflare, nginx) in front of this app.
+              These IPs are skipped when extracting the real client IP from X-Forwarded-For.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Proxy CIDRs (one per line)</Label>
+              <Textarea
+                value={(adv?.trusted_proxies || []).join('\n')}
+                onChange={(e) => {
+                  const lines = e.target.value
+                    .split('\n')
+                    .map(l => l.trim())
+                    .filter(l => l !== '');
+                  updateAdv({ trusted_proxies: lines });
+                }}
+                placeholder={"173.245.48.0/20\n103.21.244.0/22\n10.0.0.0/8"}
+                className="min-h-[120px] font-mono text-xs"
+              />
+              <p className="text-[9px] text-muted-foreground">
+                One CIDR per line. Format: <span className="font-mono">1.2.3.0/24</span> or <span className="font-mono">::1/128</span>.
+                For Cloudflare, see their <a href="https://www.cloudflare.com/ips/" target="_blank" rel="noopener noreferrer" className="underline text-primary">IP ranges</a>.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+{/* Upstream Connection */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Upstream Connection</h2>
         <Card className="shadow-none border-border">
